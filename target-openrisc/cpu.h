@@ -283,8 +283,6 @@ typedef struct CPUOpenRISCTLBContext {
 typedef struct CPUOpenRISCState {
     target_ulong gpr[32];     /* General registers */
     target_ulong pc;          /* Program counter */
-    target_ulong npc;         /* Next PC */
-    target_ulong ppc;         /* Prev PC */
     target_ulong jmp_pc;      /* Jump PC */
 
     target_ulong machi;       /* Multiply register MACHI */

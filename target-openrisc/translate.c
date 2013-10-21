@@ -41,7 +41,7 @@
 
 typedef struct DisasContext {
     TranslationBlock *tb;
-    target_ulong pc, ppc, npc;
+    target_ulong pc;
     uint32_t tb_flags, synced_flags, flags;
     uint32_t is_jmp;
     uint32_t mem_idx;
@@ -55,8 +55,6 @@ static TCGv cpu_srf;
 static TCGv cpu_R[32];
 static TCGv cpu_pc;
 static TCGv jmp_pc;            /* l.jr/l.jalr temp pc */
-static TCGv cpu_npc;
-static TCGv cpu_ppc;
 static TCGv_i32 fpcsr;
 static TCGv machi, maclo;
 static TCGv fpmaddhi, fpmaddlo;
@@ -83,10 +81,6 @@ void openrisc_translate_init(void)
                                        "flags");
     cpu_pc = tcg_global_mem_new(TCG_AREG0,
                                 offsetof(CPUOpenRISCState, pc), "pc");
-    cpu_npc = tcg_global_mem_new(TCG_AREG0,
-                                 offsetof(CPUOpenRISCState, npc), "npc");
-    cpu_ppc = tcg_global_mem_new(TCG_AREG0,
-                                 offsetof(CPUOpenRISCState, ppc), "ppc");
     jmp_pc = tcg_global_mem_new(TCG_AREG0,
                                 offsetof(CPUOpenRISCState, jmp_pc), "jmp_pc");
     fpcsr = tcg_global_mem_new_i32(TCG_AREG0,
@@ -1662,7 +1656,6 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
 
     gen_opc_end = tcg_ctx.gen_opc_buf + OPC_MAX_SIZE;
     dc->is_jmp = DISAS_NEXT;
-    dc->ppc = pc_start;
     dc->pc = pc_start;
     dc->flags = cpu->env.cpucfgr;
     dc->mem_idx = cpu_mmu_index(&cpu->env);
@@ -1707,12 +1700,8 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
         if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO)) {
             gen_io_start();
         }
-        dc->ppc = dc->pc - 4;
-        dc->npc = dc->pc + 4;
-        tcg_gen_movi_tl(cpu_ppc, dc->ppc);
-        tcg_gen_movi_tl(cpu_npc, dc->npc);
         disas_openrisc_insn(dc, cpu);
-        dc->pc = dc->npc;
+        dc->pc += 4;
         num_insns++;
         /* delay slot */
         if (dc->delayed_branch) {
@@ -1721,8 +1710,6 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
                 dc->tb_flags &= ~D_FLAG;
                 gen_sync_flags(dc);
                 tcg_gen_mov_tl(cpu_pc, jmp_pc);
-                tcg_gen_mov_tl(cpu_npc, jmp_pc);
-                tcg_gen_movi_tl(jmp_pc, 0);
                 tcg_gen_exit_tb(0);
                 dc->is_jmp = DISAS_JUMP;
                 break;

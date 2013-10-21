@@ -30,13 +30,8 @@ int openrisc_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
         return gdb_get_reg32(mem_buf, env->gpr[n]);
     } else {
         switch (n) {
-        case 32:    /* PPC */
-            return gdb_get_reg32(mem_buf, env->ppc);
 
-        case 33:    /* NPC */
-            return gdb_get_reg32(mem_buf, env->npc);
-
-        case 34:    /* SR */
+        case 32:    /* SR */
             return gdb_get_reg32(mem_buf, ENV_GET_SR(env));
 
         default:
@@ -63,15 +58,8 @@ int openrisc_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         env->gpr[n] = tmp;
     } else {
         switch (n) {
-        case 32: /* PPC */
-            env->ppc = tmp;
-            break;
 
-        case 33: /* NPC */
-            env->npc = tmp;
-            break;
-
-        case 34: /* SR */
+        case 32: /* SR */
             ENV_SET_SR(env, tmp);
             break;
 

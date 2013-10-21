@@ -38,10 +38,6 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
         env->vr = rb;
         break;
 
-    case TO_SPR(0, 16): /* NPC */
-        env->npc = rb;
-        break;
-
     case TO_SPR(0, 17): /* SR */
         if ((env->sr & (SR_IME | SR_DME | SR_SM)) ^
             (rb & (SR_IME | SR_DME | SR_SM))) {
@@ -64,10 +60,6 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
             env->tlb->cpu_openrisc_map_address_code =
                 &cpu_openrisc_get_phys_nommu;
         }
-        break;
-
-    case TO_SPR(0, 18): /* PPC */
-        env->ppc = rb;
         break;
 
     case TO_SPR(0, 32): /* EPCR */
@@ -194,14 +186,8 @@ target_ulong HELPER(mfspr)(CPUOpenRISCState *env,
     case TO_SPR(0, 4): /* IMMUCFGR */
         return env->immucfgr;
 
-    case TO_SPR(0, 16): /* NPC */
-        return env->npc;
-
     case TO_SPR(0, 17): /* SR */
         return ENV_GET_SR(env);
-
-    case TO_SPR(0, 18): /* PPC */
-        return env->ppc;
 
     case TO_SPR(0, 32): /* EPCR */
         return env->epcr;
