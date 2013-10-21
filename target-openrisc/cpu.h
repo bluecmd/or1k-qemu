@@ -272,6 +272,14 @@ typedef struct CPUOpenRISCTLBContext {
 } CPUOpenRISCTLBContext;
 #endif
 
+/* Helper for the supervision register */
+#define ENV_GET_SR(env) (((env)->sr&~SR_F) | ((env)->srf ? SR_F : 0))
+
+#define ENV_SET_SR(env, srtemp)   do {\
+                                      (env)->sr = ((srtemp) & ~SR_F) | SR_FO;\
+                                      (env)->srf = (srtemp) & SR_F;\
+                                  } while (0)
+
 typedef struct CPUOpenRISCState {
     target_ulong gpr[32];     /* General registers */
     target_ulong pc;          /* Program counter */
@@ -288,7 +296,8 @@ typedef struct CPUOpenRISCState {
     target_ulong epcr;        /* Exception PC register */
     target_ulong eear;        /* Exception EA register */
 
-    uint32_t sr;              /* Supervisor register */
+    uint32_t sr;              /* Supervision register */
+    uint32_t srf;             /* separated branch flag of Supervision register*/
     uint32_t vr;              /* Version register */
     uint32_t upr;             /* Unit presence register */
     uint32_t cpucfgr;         /* CPU configure register */
@@ -300,8 +309,6 @@ typedef struct CPUOpenRISCState {
 
     uint32_t flags;           /* cpu_flags, we only use it for exception
                                  in solt so far.  */
-    uint32_t btaken;          /* the SR_F bit */
-
     CPU_COMMON
 
 #ifndef CONFIG_USER_ONLY

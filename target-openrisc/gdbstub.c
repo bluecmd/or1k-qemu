@@ -37,7 +37,7 @@ int openrisc_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
             return gdb_get_reg32(mem_buf, env->npc);
 
         case 34:    /* SR */
-            return gdb_get_reg32(mem_buf, env->sr);
+            return gdb_get_reg32(mem_buf, ENV_GET_SR(env));
 
         default:
             break;
@@ -72,7 +72,7 @@ int openrisc_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
             break;
 
         case 34: /* SR */
-            env->sr = tmp;
+            ENV_SET_SR(env, tmp);
             break;
 
         default:

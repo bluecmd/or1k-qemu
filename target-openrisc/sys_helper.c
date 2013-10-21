@@ -47,8 +47,8 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
             (rb & (SR_IME | SR_DME | SR_SM))) {
             tlb_flush(env, 1);
         }
-        env->sr = rb;
-        env->sr |= SR_FO;      /* FO is const equal to 1 */
+        ENV_SET_SR(env, rb);
+
         if (env->sr & SR_DME) {
             env->tlb->cpu_openrisc_map_address_data =
                 &cpu_openrisc_get_phys_data;
@@ -198,7 +198,7 @@ target_ulong HELPER(mfspr)(CPUOpenRISCState *env,
         return env->npc;
 
     case TO_SPR(0, 17): /* SR */
-        return env->sr;
+        return ENV_GET_SR(env);
 
     case TO_SPR(0, 18): /* PPC */
         return env->ppc;
