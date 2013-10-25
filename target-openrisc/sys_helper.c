@@ -77,6 +77,10 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
         idx = spr - TO_SPR(1, 512);
         if (!(rb & 1)) {
             tlb_flush_page(env, env->tlb->dtlb[0][idx].mr & TARGET_PAGE_MASK);
+            if (idx == 0) {
+                /* Assume that the whole tlb buffer must be flushed */
+                tlb_flush(&cpu->env, 1);
+            }
         }
         env->tlb->dtlb[0][idx].mr = rb;
         break;
