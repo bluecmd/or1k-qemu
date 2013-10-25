@@ -39,11 +39,21 @@
 #  define LOG_DIS(...) do { } while (0)
 #endif
 
+enum {
+    JUMP_DYNAMIC, /* The address is not known during compile time*/
+    JUMP_STATIC,  /* The address is known during compile time */
+    JUMP_BRANCH   /* The two possible destinations are known */
+};
+
+
 typedef struct DisasContext {
     TranslationBlock *tb;
     target_ulong pc;
     uint32_t tb_flags, synced_flags, flags;
     uint32_t is_jmp;
+    uint32_t j_state; /* specifies the jump type*/
+    target_ulong j_target; /* target address for jump */
+    TCGv btaken;  /* Temporary variable */
     uint32_t mem_idx;
     int singlestep_enabled;
     uint32_t delayed_branch;
@@ -193,24 +203,31 @@ static void gen_jump(DisasContext *dc, uint32_t imm, uint32_t reg, uint32_t op0)
     target_ulong tmp_pc;
     /* N26, 26bits imm */
     tmp_pc = sign_extend((imm<<2), 26) + dc->pc;
+    dc->j_target = tmp_pc;
 
     switch (op0) {
     case 0x00:     /* l.j */
         tcg_gen_movi_tl(jmp_pc, tmp_pc);
+        dc->j_state = JUMP_STATIC;
         break;
     case 0x01:     /* l.jal */
         tcg_gen_movi_tl(cpu_R[9], (dc->pc + 8));
         tcg_gen_movi_tl(jmp_pc, tmp_pc);
-        break;
+        dc->j_state = JUMP_STATIC;
+    break;
     case 0x03:     /* l.bnf */
     case 0x04:     /* l.bf  */
         {
             int lab = gen_new_label();
+            dc->btaken = tcg_temp_local_new();
             tcg_gen_movi_tl(jmp_pc, dc->pc+8);
+            tcg_gen_movi_tl(dc->btaken, 0);
             tcg_gen_brcondi_i32(op0 == 0x03 ? TCG_COND_NE : TCG_COND_EQ,
                                 cpu_srf, 0, lab);
+            tcg_gen_movi_tl(dc->btaken, 1);
             tcg_gen_movi_tl(jmp_pc, tmp_pc);
             gen_set_label(lab);
+            dc->j_state = JUMP_BRANCH;
         }
         break;
     case 0x11:     /* l.jr */
@@ -1657,6 +1674,8 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
     gen_opc_end = tcg_ctx.gen_opc_buf + OPC_MAX_SIZE;
     dc->is_jmp = DISAS_NEXT;
     dc->pc = pc_start;
+    dc->j_state = JUMP_DYNAMIC;
+    dc->j_target = 0;
     dc->flags = cpu->env.cpucfgr;
     dc->mem_idx = cpu_mmu_index(&cpu->env);
     dc->synced_flags = dc->tb_flags = tb->flags;
@@ -1709,8 +1728,19 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
             if (!dc->delayed_branch) {
                 dc->tb_flags &= ~D_FLAG;
                 gen_sync_flags(dc);
-                tcg_gen_mov_tl(cpu_pc, jmp_pc);
-                tcg_gen_exit_tb(0);
+                if (dc->j_state == JUMP_BRANCH) {
+                    int l1 = gen_new_label();
+                    tcg_gen_brcondi_tl(TCG_COND_NE, dc->btaken, 0, l1);
+                    gen_goto_tb(dc, 1, dc->pc);
+                    gen_set_label(l1);
+                    gen_goto_tb(dc, 0, dc->j_target);
+                    tcg_temp_free(dc->btaken);
+                } else if (dc->j_state == JUMP_STATIC) {
+                    gen_goto_tb(dc, 0, dc->j_target);
+                } else {
+                    tcg_gen_mov_tl(cpu_pc, jmp_pc);
+                    tcg_gen_exit_tb(0);
+                }
                 dc->is_jmp = DISAS_JUMP;
                 break;
             }
@@ -1724,10 +1754,6 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
 
     if (tb->cflags & CF_LAST_IO) {
         gen_io_end();
-    }
-    if (dc->is_jmp == DISAS_NEXT) {
-        dc->is_jmp = DISAS_UPDATE;
-        tcg_gen_movi_tl(cpu_pc, dc->pc);
     }
     if (unlikely(cs->singlestep_enabled)) {
         if (dc->is_jmp == DISAS_NEXT) {
