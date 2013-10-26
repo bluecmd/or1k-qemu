@@ -204,6 +204,7 @@ enum {
     OPENRISC_FEATURE_OF32S = (1 << 7),
     OPENRISC_FEATURE_OF64S = (1 << 8),
     OPENRISC_FEATURE_OV64S = (1 << 9),
+    OPENRISC_FEATURE_NOFLAGS = (1 << 10),
 };
 
 /* Tick Timer Mode Register */

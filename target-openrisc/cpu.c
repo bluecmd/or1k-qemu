@@ -124,6 +124,16 @@ static void or1200_initfn(Object *obj)
     set_feature(cpu, OPENRISC_FEATURE_OF32S);
 }
 
+static void or1200_noflags_initfn(Object *obj)
+{
+    OpenRISCCPU *cpu = OPENRISC_CPU(obj);
+
+    set_feature(cpu, OPENRISC_FEATURE_OB32S);
+    set_feature(cpu, OPENRISC_FEATURE_OF32S);
+    set_feature(cpu, OPENRISC_FEATURE_NOFLAGS);
+}
+
+
 static void openrisc_any_initfn(Object *obj)
 {
     OpenRISCCPU *cpu = OPENRISC_CPU(obj);
@@ -137,8 +147,9 @@ typedef struct OpenRISCCPUInfo {
 } OpenRISCCPUInfo;
 
 static const OpenRISCCPUInfo openrisc_cpus[] = {
-    { .name = "or1200",      .initfn = or1200_initfn },
-    { .name = "any",         .initfn = openrisc_any_initfn },
+    { .name = "or1200",         .initfn = or1200_initfn },
+    { .name = "or1200-noflags", .initfn = or1200_noflags_initfn },
+    { .name = "any",            .initfn = openrisc_any_initfn },
 };
 
 static void openrisc_cpu_class_init(ObjectClass *oc, void *data)

@@ -50,6 +50,7 @@ typedef struct DisasContext {
     TranslationBlock *tb;
     target_ulong pc;
     uint32_t tb_flags, synced_flags, flags;
+    uint32_t cpufeature;
     uint32_t is_jmp;
     uint32_t j_state; /* specifies the jump type*/
     target_ulong j_target; /* target address for jump */
@@ -265,7 +266,9 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
         switch (op1) {
         case 0x00:    /* l.add */
             LOG_DIS("l.add r%d, r%d, r%d\n", rd, ra, rb);
-            {
+            if (dc->cpufeature & OPENRISC_FEATURE_NOFLAGS) {
+                tcg_gen_add_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
+            } else {
                 int lab = gen_new_label();
                 TCGv_i64 ta = tcg_temp_new_i64();
                 TCGv_i64 tb = tcg_temp_new_i64();
@@ -306,7 +309,9 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
         switch (op1) {
         case 0x00:
             LOG_DIS("l.addc r%d, r%d, r%d\n", rd, ra, rb);
-            {
+            if (dc->cpufeature & OPENRISC_FEATURE_NOFLAGS) {
+                gen_illegal_exception(dc);
+            } else {
                 int lab = gen_new_label();
                 TCGv_i64 ta = tcg_temp_new_i64();
                 TCGv_i64 tb = tcg_temp_new_i64();
@@ -355,7 +360,9 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
         switch (op1) {
         case 0x00:
             LOG_DIS("l.sub r%d, r%d, r%d\n", rd, ra, rb);
-            {
+            if (dc->cpufeature & OPENRISC_FEATURE_NOFLAGS) {
+                tcg_gen_sub_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
+            } else {
                 int lab = gen_new_label();
                 TCGv_i64 ta = tcg_temp_new_i64();
                 TCGv_i64 tb = tcg_temp_new_i64();
@@ -947,7 +954,9 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
 
     case 0x27:    /* l.addi */
         LOG_DIS("l.addi r%d, r%d, %d\n", rd, ra, I16);
-        {
+        if (dc->cpufeature & OPENRISC_FEATURE_NOFLAGS) {
+            tcg_gen_addi_tl(cpu_R[rd], cpu_R[ra], sign_extend(I16, 16));
+        } else {
             if (I16 == 0) {
                 tcg_gen_mov_tl(cpu_R[rd], cpu_R[ra]);
             } else {
@@ -982,6 +991,9 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
 
     case 0x28:    /* l.addic */
         LOG_DIS("l.addic r%d, r%d, %d\n", rd, ra, I16);
+        if (dc->cpufeature & OPENRISC_FEATURE_NOFLAGS) {
+            gen_illegal_exception(dc);
+        }
         {
             int lab = gen_new_label();
             TCGv_i64 ta = tcg_temp_new_i64();
@@ -1739,6 +1751,7 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
     dc->j_state = JUMP_DYNAMIC;
     dc->j_target = 0;
     dc->flags = cpu->env.cpucfgr;
+    dc->cpufeature = cpu->feature;
     dc->mem_idx = cpu_mmu_index(&cpu->env);
     dc->synced_flags = dc->tb_flags = tb->flags;
     dc->delayed_branch = !!(dc->tb_flags & D_FLAG);
