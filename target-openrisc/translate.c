@@ -1655,6 +1655,35 @@ static void check_breakpoint(OpenRISCCPU *cpu, DisasContext *dc)
     }
 }
 
+static void handle_delay_slot(DisasContext *dc)
+{
+    dc->tb_flags &= ~D_FLAG;
+    gen_sync_flags(dc);
+
+    switch (dc->j_state) {
+    case JUMP_BRANCH:
+        {
+            int l1 = gen_new_label();
+            tcg_gen_brcondi_tl(TCG_COND_NE, dc->btaken, 0, l1);
+            gen_goto_tb(dc, 1, dc->pc);
+            gen_set_label(l1);
+            tcg_temp_free(dc->btaken);
+            gen_goto_tb(dc, 0, dc->j_target);
+            break;
+        }
+    case JUMP_STATIC:
+        gen_goto_tb(dc, 0, dc->j_target);
+        break;
+    case JUMP_DYNAMIC:
+    default:
+        tcg_gen_mov_tl(cpu_pc, jmp_pc);
+        tcg_gen_exit_tb(0);
+        break;
+    }
+    dc->is_jmp = DISAS_JUMP;
+}
+
+
 static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
                                                   TranslationBlock *tb,
                                                   int search_pc)
@@ -1726,22 +1755,7 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
         if (dc->delayed_branch) {
             dc->delayed_branch--;
             if (!dc->delayed_branch) {
-                dc->tb_flags &= ~D_FLAG;
-                gen_sync_flags(dc);
-                if (dc->j_state == JUMP_BRANCH) {
-                    int l1 = gen_new_label();
-                    tcg_gen_brcondi_tl(TCG_COND_NE, dc->btaken, 0, l1);
-                    gen_goto_tb(dc, 1, dc->pc);
-                    gen_set_label(l1);
-                    gen_goto_tb(dc, 0, dc->j_target);
-                    tcg_temp_free(dc->btaken);
-                } else if (dc->j_state == JUMP_STATIC) {
-                    gen_goto_tb(dc, 0, dc->j_target);
-                } else {
-                    tcg_gen_mov_tl(cpu_pc, jmp_pc);
-                    tcg_gen_exit_tb(0);
-                }
-                dc->is_jmp = DISAS_JUMP;
+                handle_delay_slot(dc);
                 break;
             }
         }
