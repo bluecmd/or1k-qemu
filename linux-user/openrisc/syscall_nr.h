@@ -493,7 +493,7 @@
 #define TARGET_NR_fstatfs64 TARGET_NR_3264_fstatfs
 #define TARGET_NR_truncate64 TARGET_NR_3264_truncate
 #define TARGET_NR_ftruncate64 TARGET_NR_3264_ftruncate
-#define TARGET_NR_llseek TARGET_NR_3264_lseek
+#define TARGET_NR__llseek TARGET_NR_3264_lseek
 #define TARGET_NR_sendfile64 TARGET_NR_3264_sendfile
 #define TARGET_NR_fstatat64 TARGET_NR_3264_fstatat
 #define TARGET_NR_fstat64 TARGET_NR_3264_fstat
