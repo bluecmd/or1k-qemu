@@ -145,12 +145,14 @@ static inline void gen_sync_flags(DisasContext *dc)
 static void gen_exception(DisasContext *dc, unsigned int excp)
 {
     TCGv_i32 tmp = tcg_const_i32(excp);
+    gen_sync_flags(dc);
     gen_helper_exception(cpu_env, tmp);
     tcg_temp_free_i32(tmp);
 }
 
 static void gen_illegal_exception(DisasContext *dc)
 {
+    gen_sync_flags(dc);
     tcg_gen_movi_tl(cpu_pc, dc->pc);
     gen_exception(dc, EXCP_ILLEGAL);
     dc->is_jmp = DISAS_UPDATE;
@@ -244,7 +246,6 @@ static void gen_jump(DisasContext *dc, uint32_t imm, uint32_t reg, uint32_t op0)
 
     dc->delayed_branch = 2;
     dc->tb_flags |= D_FLAG;
-    gen_sync_flags(dc);
 }
 
 
@@ -703,6 +704,7 @@ static void gen_loadstore(DisasContext *dc, uint32 op0,
  */
 #if !defined(CONFIG_USER_ONLY)
     tcg_gen_movi_tl(cpu_pc, dc->pc);
+    gen_sync_flags(dc);
 #endif
 
     TCGv t0 = cpu_R[ra];
@@ -1787,6 +1789,8 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
              && !singlestep
              && (dc->pc < next_page_start)
              && num_insns < max_insns);
+
+    gen_sync_flags(dc);
 
     if (tb->cflags & CF_LAST_IO) {
         gen_io_end();
