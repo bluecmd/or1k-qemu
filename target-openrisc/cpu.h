@@ -84,8 +84,9 @@ enum {
 /* Version Register */
 #define SPR_VR 0xFFFF003F
 
-/* Internal flags, delay slot flag */
-#define D_FLAG    2
+/* Internal flags */
+#define D_FLAG    2 /* delay slot flag */
+#define B_FLAG    4 /* branch flag */
 
 /* Interrupt */
 #define NR_IRQS  32
@@ -413,7 +414,7 @@ static inline void cpu_get_tb_cpu_state(CPUOpenRISCState *env,
     *pc = env->pc;
     *cs_base = 0;
     /* D_FLAG -- branch instruction exception */
-    *flags = (env->flags & D_FLAG) |
+    *flags = (env->flags & (D_FLAG | B_FLAG)) |
              (env->sr & (SR_SM | SR_DME | SR_IME | SR_OVE));
 }
 

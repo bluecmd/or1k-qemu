@@ -42,7 +42,11 @@
 enum {
     JUMP_DYNAMIC, /* The address is not known during compile time*/
     JUMP_STATIC,  /* The address is known during compile time */
-    JUMP_BRANCH   /* The two possible destinations are known */
+    JUMP_BRANCH,  /* The two possible destinations are known */
+    JUMP_BRANCH_DELAYED  /* Indicates that the first instruction in
+                            the tb is a delayed slot of a previous
+                            branch instruction. */
+
 };
 
 
@@ -54,7 +58,6 @@ typedef struct DisasContext {
     uint32_t is_jmp;
     uint32_t j_state; /* specifies the jump type*/
     target_ulong j_target; /* target address for jump */
-    TCGv btaken;  /* Temporary variable */
     uint32_t mem_idx;
     int singlestep_enabled;
     uint32_t delayed_branch;
@@ -222,15 +225,13 @@ static void gen_jump(DisasContext *dc, uint32_t imm, uint32_t reg, uint32_t op0)
     case 0x04:     /* l.bf  */
         {
             int lab = gen_new_label();
-            dc->btaken = tcg_temp_local_new();
-            tcg_gen_movi_tl(jmp_pc, dc->pc+8);
-            tcg_gen_movi_tl(dc->btaken, 0);
+            tcg_gen_movi_tl(jmp_pc, 0);
             tcg_gen_brcondi_i32(op0 == 0x03 ? TCG_COND_NE : TCG_COND_EQ,
                                 cpu_srf, 0, lab);
-            tcg_gen_movi_tl(dc->btaken, 1);
             tcg_gen_movi_tl(jmp_pc, tmp_pc);
             gen_set_label(lab);
             dc->j_state = JUMP_BRANCH;
+            dc->tb_flags |= B_FLAG;
         }
         break;
     case 0x11:     /* l.jr */
@@ -1703,17 +1704,27 @@ static void check_breakpoint(OpenRISCCPU *cpu, DisasContext *dc)
 static void handle_delay_slot(DisasContext *dc)
 {
     dc->tb_flags &= ~D_FLAG;
+    dc->tb_flags &= ~B_FLAG;
     gen_sync_flags(dc);
 
     switch (dc->j_state) {
     case JUMP_BRANCH:
         {
             int l1 = gen_new_label();
-            tcg_gen_brcondi_tl(TCG_COND_NE, dc->btaken, 0, l1);
+            tcg_gen_brcondi_tl(TCG_COND_NE, jmp_pc, 0, l1);
             gen_goto_tb(dc, 1, dc->pc);
             gen_set_label(l1);
-            tcg_temp_free(dc->btaken);
             gen_goto_tb(dc, 0, dc->j_target);
+            break;
+        }
+    case JUMP_BRANCH_DELAYED:
+        {
+            int l1 = gen_new_label();
+            tcg_gen_brcondi_tl(TCG_COND_NE, jmp_pc, 0, l1);
+            gen_goto_tb(dc, 1, dc->pc);
+            gen_set_label(l1);
+            tcg_gen_mov_tl(cpu_pc, jmp_pc);
+            tcg_gen_exit_tb(0);
             break;
         }
     case JUMP_STATIC:
@@ -1754,8 +1765,13 @@ static inline void gen_intermediate_code_internal(OpenRISCCPU *cpu,
     dc->cpufeature = cpu->feature;
     dc->mem_idx = cpu_mmu_index(&cpu->env);
     dc->synced_flags = dc->tb_flags = tb->flags;
-    dc->delayed_branch = !!(dc->tb_flags & D_FLAG);
     dc->singlestep_enabled = cs->singlestep_enabled;
+
+    dc->delayed_branch = !!(dc->tb_flags & D_FLAG);
+    if ((dc->delayed_branch) && (dc->tb_flags&B_FLAG)) {
+        dc->j_state = JUMP_BRANCH_DELAYED;
+    }
+
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
         qemu_log("-----------------------------------------\n");
         log_cpu_state(CPU(cpu), 0);
