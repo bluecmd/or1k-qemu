@@ -60,6 +60,13 @@ typedef struct OpenRISCCPUClass {
     void (*parent_reset)(CPUState *cpu);
 } OpenRISCCPUClass;
 
+/* The CPU allows separate MMUs for instructions and data
+ * and would lead consequently 7 different MMU modes.
+ * To reduce the cost for tlb flushes both MMUs can only be
+ * used together
+ */
+
+
 #define NB_MMU_MODES    3
 
 enum {
@@ -421,7 +428,7 @@ static inline void cpu_get_tb_cpu_state(CPUOpenRISCState *env,
 
 static inline int cpu_mmu_index(CPUOpenRISCState *env)
 {
-    if (!(env->sr & SR_IME)) {
+    if (!(env->sr & (SR_IME | SR_DME))) {
         return MMU_NOMMU_IDX;
     }
     return (env->sr & SR_SM) == 0 ? MMU_USER_IDX : MMU_SUPERVISOR_IDX;
