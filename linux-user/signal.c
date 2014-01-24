@@ -3840,6 +3840,7 @@ static void restore_sigcontext(CPUOpenRISCState *regs,
     memcpy(regs, sc->regs.gpr, 32 * sizeof(unsigned long));
     regs->pc = sc->regs.pc;
     regs->sr = sc->regs.sr;
+    regs->gpr[0] = 0;
 
     /* make sure the U-flag is set so user-mode cannot fool us */
     regs->sr &= ~SR_SM;
@@ -3853,7 +3854,6 @@ static void restore_sigcontext(CPUOpenRISCState *regs,
 static void setup_sigcontext(CPUOpenRISCState *regs,
                             struct target_sigcontext *sc)
 {
-    /* copy the regs. they are first in sc so we can use sc directly */
     memcpy(sc->regs.gpr, regs, 32 * sizeof(unsigned long));
     sc->regs.pc = regs->pc;
     sc->regs.sr = regs->sr;
@@ -3904,8 +3904,6 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     unsigned long return_ip;
     struct target_rt_sigframe *frame;
 
-
-    fprintf(stderr,"starting signal. gpr11 = %08x\n", env->gpr[11]);
     frame_addr = get_sigframe(ka, env, sizeof(*frame));
     if (!lock_user_struct(VERIFY_WRITE, frame, frame_addr, 1)) {
         if (sig == TARGET_SIGSEGV) {
@@ -3976,8 +3974,6 @@ long do_rt_sigreturn(CPUOpenRISCState *env)
 
     if (do_sigaltstack(altstack_addr, 0, env->gpr[1]) == -EFAULT)
         goto badframe;
-
-    fprintf(stderr,"returning from signal. gpr11 = %08x\n", env->gpr[11]);
 
     return env->gpr[11];
 
