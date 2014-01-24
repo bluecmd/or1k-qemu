@@ -2515,11 +2515,11 @@ void cpu_loop(CPUOpenRISCState *env)
 
         switch (trapnr) {
         case EXCP_RESET:
-            qemu_log("\nReset request, exit, pc is %#x\n", env->pc);
+            qemu_log("\nReset request, pc is %#x\n", env->pc);
             exit(1);
             break;
         case EXCP_BUSERR:
-            qemu_log("\nBus error, exit, pc is %#x\n", env->pc);
+            qemu_log("\nBus error, pc is %#x\n", env->pc);
             gdbsig = SIGBUS;
             break;
         case EXCP_DPF:
@@ -2528,18 +2528,18 @@ void cpu_loop(CPUOpenRISCState *env)
             gdbsig = TARGET_SIGSEGV;
             break;
         case EXCP_TICK:
-            qemu_log("\nTick time interrupt pc is %#x\n", env->pc);
+            qemu_log("\nTick time interrupt, pc is %#x\n", env->pc);
             break;
         case EXCP_ALIGN:
-            qemu_log("\nAlignment pc is %#x\n", env->pc);
+            qemu_log("\nAlignment, pc is %#x\n", env->pc);
             gdbsig = SIGBUS;
             break;
         case EXCP_ILLEGAL:
-            qemu_log("\nIllegal instructionpc is %#x\n", env->pc);
+            qemu_log("\nIllegal instruction, pc is %#x\n", env->pc);
             gdbsig = SIGILL;
             break;
         case EXCP_INT:
-            qemu_log("\nExternal interruptpc is %#x\n", env->pc);
+            qemu_log("\nExternal interrupt, pc is %#x\n", env->pc);
             break;
         case EXCP_DTLBMISS:
         case EXCP_ITLBMISS:

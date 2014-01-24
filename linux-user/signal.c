@@ -3935,7 +3935,6 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
                            target_siginfo_t *info,
                            target_sigset_t *set, CPUOpenRISCState *env)
 {
-    int err = 0;
     abi_ulong frame_addr;
     unsigned long return_ip;
     struct target_rt_sigframe *frame;
@@ -3958,20 +3957,17 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     setup_sigcontext(env, &frame->uc.tuc_mcontext);
 
     memcpy(&frame->uc.tuc_sigmask, set, sizeof(*set));
-    unlock_user_struct(frame, frame_addr, 1);
 
     /* trampoline - the desired return ip is the retcode itself */
     return_ip = frame_addr + offsetof(struct target_rt_sigframe, retcode);
 
     /* This is l.ori r11,r0,__NR_sigreturn, l.sys 1 */
-    err |= __put_user(0xa960, (short *)(frame->retcode + 0));
-    err |= __put_user(TARGET_NR_rt_sigreturn, (short *)(frame->retcode + 2));
-    err |= __put_user(0x20000001, (unsigned long *)(frame->retcode + 4));
-    err |= __put_user(0x15000000, (unsigned long *)(frame->retcode + 8));
+    *(short *)(frame->retcode + 0) = tswap16(0xa960);
+    *(short *)(frame->retcode + 2) = tswap16(TARGET_NR_rt_sigreturn);
+    *(unsigned long *)(frame->retcode + 4) = tswap32(0x20000001);
+    *(unsigned long *)(frame->retcode + 8) = tswap32(0x15000000);
 
-    if (err) {
-        goto give_sigsegv;
-    }
+    unlock_user_struct(frame, frame_addr, 1);
 
     /* Set up registers for signal handler */
     env->pc = (unsigned long)ka->_sa_handler;   /* what we enter NOW */
@@ -3999,6 +3995,7 @@ give_sigsegv:
 long do_rt_sigreturn(CPUOpenRISCState *env)
 {
     fprintf(stderr, "do_rt_sigreturn: not implemented\n");
+    exit(1);
     return -TARGET_ENOSYS;
 }
 /* TARGET_OPENRISC */
