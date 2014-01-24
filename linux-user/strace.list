@@ -1527,3 +1527,6 @@
 #ifdef TARGET_NR_atomic_barrier
 { TARGET_NR_atomic_barrier, "atomic_barrier", NULL, NULL, NULL },
 #endif
+#ifdef TARGET_NR_or1k_atomic
+{ TARGET_NR_or1k_atomic, "or1k_atomic", NULL, print_or1k_atomic, NULL },
+#endif

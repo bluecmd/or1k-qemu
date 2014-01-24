@@ -20,6 +20,16 @@
 #ifndef TARGET_CPU_H
 #define TARGET_CPU_H
 
+#define OR1K_ATOMIC_SWAP        1
+#define OR1K_ATOMIC_CMPXCHG     2
+#define OR1K_ATOMIC_XCHG        3
+#define OR1K_ATOMIC_ADD         4
+#define OR1K_ATOMIC_DECPOS      5
+#define OR1K_ATOMIC_AND         6
+#define OR1K_ATOMIC_OR          7
+#define OR1K_ATOMIC_UMAX        8
+#define OR1K_ATOMIC_UMIN        9
+
 static inline void cpu_clone_regs(CPUOpenRISCState *env, target_ulong newsp)
 {
     if (newsp) {
@@ -30,9 +40,8 @@ static inline void cpu_clone_regs(CPUOpenRISCState *env, target_ulong newsp)
 
 static inline void cpu_set_tls(CPUOpenRISCState *env, target_ulong newtls)
 {
-    /* Linux kernel 3.10 does not pay any attention to CLONE_SETTLS
-     * in copy_thread(), so QEMU need not do so either.
-     */
+    fprintf(stderr, "Setting TLS to %08x\n", newtls);
+    env->gpr[10] = newtls;
 }
 
 #endif

@@ -367,6 +367,7 @@
  * starting with this value.
  */
 #define TARGET_NR_arch_specific_syscall 244
+#define TARGET_NR_or1k_atomic TARGET_NR_arch_specific_syscall
 
 #define TARGET_NR_wait4 260
 #define TARGET_NR_prlimit64 261

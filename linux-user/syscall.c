@@ -9195,6 +9195,75 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         break;
     }
 #endif
+#ifdef TARGET_NR_or1k_atomic
+    case TARGET_NR_or1k_atomic:
+    {
+        /* should use start_exclusive from main.c */
+        abi_ulong mem_value;
+        abi_ulong mem_value2 = 0;
+        if (get_user_u32(mem_value, arg2)) {
+            target_siginfo_t info;
+            info.si_signo = SIGSEGV;
+            info.si_errno = 0;
+            info.si_code = TARGET_SEGV_MAPERR;
+            info._sifields._sigfault._addr = arg2;
+            queue_signal((CPUArchState *)cpu_env, info.si_signo, &info);
+            ret = 0xdeadbeef;
+        }
+
+        if (arg1 == OR1K_ATOMIC_SWAP) {
+            if (get_user_u32(mem_value2, arg3)) {
+                target_siginfo_t info;
+                info.si_signo = SIGSEGV;
+                info.si_errno = 0;
+                info.si_code = TARGET_SEGV_MAPERR;
+                info._sifields._sigfault._addr = arg2;
+                queue_signal((CPUArchState *)cpu_env, info.si_signo, &info);
+                ret = 0xdeadbeef;
+            }
+        }
+
+        ret = mem_value;
+
+        switch (arg1) {
+        case OR1K_ATOMIC_SWAP:
+            put_user_u32(mem_value, arg3);
+            put_user_u32(mem_value2, arg2);
+            ret = 0;
+            break;
+        case OR1K_ATOMIC_CMPXCHG:
+            if (mem_value == arg3)
+                put_user_u32(arg4, arg2);
+            break;
+        case OR1K_ATOMIC_XCHG:
+            put_user_u32(arg3, arg2);
+            break;
+        case OR1K_ATOMIC_ADD:
+            put_user_u32(mem_value + arg3, arg2);
+            break;
+        case OR1K_ATOMIC_DECPOS:
+            if (mem_value > 0)
+              put_user_u32(mem_value - 1, arg2);
+            break;
+        case OR1K_ATOMIC_AND:
+            put_user_u32(mem_value & arg3, arg2);
+            break;
+        case OR1K_ATOMIC_OR:
+            put_user_u32(mem_value | arg3, arg2);
+            break;
+        case OR1K_ATOMIC_UMAX:
+            if (mem_value < arg3)
+              put_user_u32(arg3, arg2);
+            break;
+        case OR1K_ATOMIC_UMIN:
+            if (mem_value > arg3)
+              put_user_u32(arg3, arg2);
+            break;
+        }
+        break;
+    }
+#endif
+
     default:
     unimplemented:
         gemu_log("qemu: Unsupported syscall: %d\n", num);

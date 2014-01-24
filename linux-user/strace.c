@@ -1552,6 +1552,36 @@ print_kill(const struct syscallname *name,
 }
 #endif
 
+#ifdef TARGET_NR_or1k_atomic
+static void
+print_or1k_atomic(const struct syscallname *name,
+    abi_long arg0, abi_long arg1, abi_long arg2,
+    abi_long arg3, abi_long arg4, abi_long arg5)
+{
+    const char *op_name = NULL;
+
+    /* TODO: implement showing of all the arguments */
+    switch (arg0) {
+    case OR1K_ATOMIC_SWAP:    op_name = "SWAP"; break;
+    case OR1K_ATOMIC_CMPXCHG: op_name = "CMPXCHG"; break;
+    case OR1K_ATOMIC_XCHG:    op_name = "XCHG"; break;
+    case OR1K_ATOMIC_ADD:     op_name = "ADD"; break;
+    case OR1K_ATOMIC_DECPOS:  op_name = "DECPOS"; break;
+    case OR1K_ATOMIC_AND:     op_name = "AND"; break;
+    case OR1K_ATOMIC_OR:      op_name = "OR"; break;
+    case OR1K_ATOMIC_UMAX:    op_name = "UMAX"; break;
+    case OR1K_ATOMIC_UMIN:    op_name = "UMIN"; break;
+    }
+    print_syscall_prologue(name);
+    if (op_name == NULL) {
+        print_raw_param("%ld", arg0, 1);
+    } else {
+        gemu_log("%s", op_name);
+    }
+    print_syscall_epilogue(name);
+}
+#endif
+
 /*
  * An array of all of the syscalls we know about
  */
@@ -1616,3 +1646,4 @@ print_syscall_ret(int num, abi_long ret)
             break;
         }
 }
+
