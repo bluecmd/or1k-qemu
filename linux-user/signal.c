@@ -3834,64 +3834,29 @@ struct target_rt_sigframe {
 };
 
 /* This is the asm-generic/ucontext.h version */
-#if 0
-static int restore_sigcontext(CPUOpenRISCState *regs,
+static void restore_sigcontext(CPUOpenRISCState *regs,
                               struct target_sigcontext *sc)
 {
-    unsigned int err = 0;
-    unsigned long old_usp;
-
-    /* Alwys make any pending restarted system call return -EINTR */
-    current_thread_info()->restart_block.fn = do_no_restart_syscall;
-
-    /* restore the regs from &sc->regs (same as sc, since regs is first)
-     * (sc is already checked for VERIFY_READ since the sigframe was
-     *  checked in sys_sigreturn previously)
-     */
-
-    if (copy_from_user(regs, &sc, sizeof(struct target_pt_regs))) {
-        goto badframe;
-    }
+    memcpy(regs, sc->regs.gpr, 32 * sizeof(unsigned long));
+    regs->pc = sc->regs.pc;
+    regs->sr = sc->regs.sr;
 
     /* make sure the U-flag is set so user-mode cannot fool us */
-
     regs->sr &= ~SR_SM;
 
-    /* restore the old USP as it was before we stacked the sc etc.
-     * (we cannot just pop the sigcontext since we aligned the sp and
-     *  stuff after pushing it)
-     */
-
-    err |= __get_user(old_usp, &sc->usp);
-    phx_signal("old_usp 0x%lx", old_usp);
-
-    __PHX__ REALLY           /* ??? */
-    wrusp(old_usp);
-    regs->gpr[1] = old_usp;
-
-    /* TODO: the other ports use regs->orig_XX to disable syscall checks
-     * after this completes, but we don't use that mechanism. maybe we can
-     * use it now ?
-     */
-
-    return err;
-
-badframe:
-    return 1;
+    /* TODO: the or1k kernel does some trickery with a 'orig_gpr11' to
+     * support syscall restarts. I have not implemented this as of now,
+     * might be needed later. */
 }
-#endif
 
 /* Set up a signal frame.  */
-
-static int setup_sigcontext(CPUOpenRISCState *regs,
+static void setup_sigcontext(CPUOpenRISCState *regs,
                             struct target_sigcontext *sc)
 {
     /* copy the regs. they are first in sc so we can use sc directly */
     memcpy(sc->regs.gpr, regs, 32 * sizeof(unsigned long));
     sc->regs.pc = regs->pc;
     sc->regs.sr = regs->sr;
-
-    return 0;
 }
 
 static inline unsigned long align_sigframe(unsigned long sp)
@@ -3939,9 +3904,15 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     unsigned long return_ip;
     struct target_rt_sigframe *frame;
 
+
+    fprintf(stderr,"starting signal. gpr11 = %08x\n", env->gpr[11]);
     frame_addr = get_sigframe(ka, env, sizeof(*frame));
-    if (!lock_user_struct(VERIFY_WRITE, frame, frame_addr, 0)) {
-        goto give_sigsegv;
+    if (!lock_user_struct(VERIFY_WRITE, frame, frame_addr, 1)) {
+        if (sig == TARGET_SIGSEGV) {
+            ka->_sa_handler = TARGET_SIG_DFL;
+        }
+        force_sig(TARGET_SIGSEGV);
+        return;
     }
 
     if (ka->sa_flags & SA_SIGINFO) {
@@ -3955,7 +3926,6 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     frame->uc.tuc_stack.ss_size = target_sigaltstack_used.ss_size;
 
     setup_sigcontext(env, &frame->uc.tuc_mcontext);
-
     memcpy(&frame->uc.tuc_sigmask, set, sizeof(*set));
 
     /* trampoline - the desired return ip is the retcode itself */
@@ -3982,22 +3952,39 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
 
     /* actually move the usp to reflect the stacked frame */
     env->gpr[1] = (unsigned long)frame_addr;
-    return;
-
-give_sigsegv:
-    unlock_user_struct(frame, frame_addr, 1);
-    if (sig == TARGET_SIGSEGV) {
-        ka->_sa_handler = TARGET_SIG_DFL;
-    }
-    force_sig(TARGET_SIGSEGV);
 }
 
 long do_rt_sigreturn(CPUOpenRISCState *env)
 {
-    fprintf(stderr, "do_rt_sigreturn: not implemented\n");
-    exit(1);
-    return -TARGET_ENOSYS;
+    sigset_t set;
+    struct target_rt_sigframe *frame;
+    abi_ulong frame_addr = env->gpr[1];
+    abi_ulong altstack_addr = (frame_addr +
+        offsetof(struct target_rt_sigframe, uc.tuc_stack));
+
+    if (frame_addr & 3)
+        goto badframe;
+
+    if (!lock_user_struct(VERIFY_WRITE, frame, frame_addr, 1))
+        goto badframe;
+
+    target_to_host_sigset(&set, &frame->uc.tuc_sigmask);
+    sigprocmask(SIG_SETMASK, &set, NULL);
+
+    restore_sigcontext(env, &frame->uc.tuc_mcontext);
+    unlock_user_struct(frame, frame_addr, 1);
+
+    if (do_sigaltstack(altstack_addr, 0, env->gpr[1]) == -EFAULT)
+        goto badframe;
+
+    fprintf(stderr,"returning from signal. gpr11 = %08x\n", env->gpr[11]);
+
+    return env->gpr[11];
+
+badframe:
+    force_sig(TARGET_SIGSEGV);
 }
+
 /* TARGET_OPENRISC */
 
 #elif defined(TARGET_S390X)
