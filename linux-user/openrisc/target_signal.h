@@ -15,6 +15,8 @@ typedef struct target_sigaltstack {
 #define TARGET_SS_ONSTACK     1
 #define TARGET_SS_DISABLE     2
 
+#define TARGET_SS_REDZONE  128
+
 #define TARGET_MINSIGSTKSZ    2048
 #define TARGET_SIGSTKSZ       8192
 

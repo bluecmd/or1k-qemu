@@ -2570,6 +2570,9 @@ void cpu_loop(CPUOpenRISCState *env)
         case EXCP_NR:
             qemu_log("\nNR\n");
             break;
+        case EXCP_INTERRUPT:
+            /* just indicate that signals should be handled asap */
+            break;
         default:
             qemu_log("\nqemu: unhandled CPU exception %#x - aborting\n",
                      trapnr);
