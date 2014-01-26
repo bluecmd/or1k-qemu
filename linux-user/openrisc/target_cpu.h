@@ -40,7 +40,6 @@ static inline void cpu_clone_regs(CPUOpenRISCState *env, target_ulong newsp)
 
 static inline void cpu_set_tls(CPUOpenRISCState *env, target_ulong newtls)
 {
-    fprintf(stderr, "Setting TLS to %08x\n", newtls);
     env->gpr[10] = newtls;
 }
 
