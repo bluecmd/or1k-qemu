@@ -727,6 +727,10 @@ static void gen_loadstore(DisasContext *dc, uint32 op0,
     }
 
     switch (op0) {
+    case 0x1b:    /* l.lwa */
+        tcg_gen_qemu_ld32u(cpu_R[rd], t0, dc->mem_idx);
+        break;
+
     case 0x21:    /* l.lwz */
         tcg_gen_qemu_ld32u(cpu_R[rd], t0, dc->mem_idx);
         break;
@@ -749,6 +753,11 @@ static void gen_loadstore(DisasContext *dc, uint32 op0,
 
     case 0x26:    /* l.lhs */
         tcg_gen_qemu_ld16s(cpu_R[rd], t0, dc->mem_idx);
+        break;
+
+    case 0x33:    /* l.swa */
+        tcg_gen_qemu_st32(cpu_R[rb], t0, dc->mem_idx);
+        tcg_gen_movi_i32(cpu_srf, 1);
         break;
 
     case 0x35:    /* l.sw */
@@ -922,6 +931,11 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
         }
         break;
 #endif*/
+
+    case 0x1b:    /* l.lwa */
+        LOG_DIS("l.lwa r%d, r%d, %d\n", rd, ra, I16);
+        gen_loadstore(dc, op0, ra, rb, rd, I16);
+        break;
 
     case 0x21:    /* l.lwz */
         LOG_DIS("l.lwz r%d, r%d, %d\n", rd, ra, I16);
@@ -1105,6 +1119,11 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
         }
         break;
 #endif*/
+
+    case 0x33:    /* l.swa */
+        LOG_DIS("l.swa %d, r%d, r%d, %d\n", I5, ra, rb, I11);
+        gen_loadstore(dc, op0, ra, rb, rd, tmp);
+        break;
 
     case 0x35:    /* l.sw */
         LOG_DIS("l.sw %d, r%d, r%d, %d\n", I5, ra, rb, I11);
