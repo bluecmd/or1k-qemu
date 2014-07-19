@@ -22,7 +22,7 @@
 #include "hw/hw.h"
 #include "qemu/timer.h"
 
-#define TIMER_FREQ    (20 * 1000 * 1000)    /* 20MHz */
+#define TIMER_FREQ    (200 * 1000 * 1000)    /* 200MHz */
 
 /* The time when TTCR changes */
 static uint64_t last_clk;

@@ -148,7 +148,7 @@ all-obj-y = $(obj-y)
 all-obj-y += $(addprefix ../, $(common-obj-y))
 
 ifndef CONFIG_HAIKU
-LIBS+=-lm
+LIBS+=-lm -lgpg-error
 endif
 
 ifdef QEMU_PROGW

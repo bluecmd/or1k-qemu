@@ -132,6 +132,9 @@ static void openrisc_sim_init(QEMUMachineInitArgs *args)
     cpu_openrisc_load_kernel(ram_size, kernel_filename, cpu);
 
     sysbus_create_simple("virtio-mmio", 0x93000000, cpu->env.irq[9]);
+    sysbus_create_simple("virtio-mmio", 0x93000200, cpu->env.irq[10]);
+    sysbus_create_simple("virtio-mmio", 0x93000400, cpu->env.irq[11]);
+    sysbus_create_simple("virtio-mmio", 0x93000600, cpu->env.irq[12]);
 }
 
 static QEMUMachine openrisc_sim_machine = {
