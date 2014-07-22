@@ -39,6 +39,20 @@
 #  define LOG_DIS(...) do { } while (0)
 #endif
 
+/* According to the OpenRISC specification we should posion our atomic lock
+ * if any other store is detected to the same address. For the sake of speed
+ * and that we're single-threaded we cheat by saying that atomic saves
+ * are guaranteed to fail only if an atomic load or another atomic save
+ * is executed.
+ *
+ * To close down the potential case where we have a store that should posion
+ * the lock but is not atomic, we save the *value* of the address at the lock
+ * time. This is a hack and is obviously not perfect, but I think this is
+ * close enough and an acceptable trade-off.
+ *
+ * TODO This is disabled by default for now since it seems to be broken. */
+//#define STRICTER_ATOMICS
+
 enum {
     JUMP_DYNAMIC, /* The address is not known during compile time*/
     JUMP_STATIC,  /* The address is known during compile time */
@@ -67,6 +81,10 @@ static TCGv_ptr cpu_env;
 static TCGv cpu_sr;
 static TCGv cpu_srf;
 static TCGv cpu_R[32];
+static TCGv cpu_lock_addr;
+#ifdef STRICTER_ATOMICS
+static TCGv cpu_lock_value;
+#endif
 static TCGv cpu_pc;
 static TCGv jmp_pc;            /* l.jr/l.jalr temp pc */
 static TCGv_i32 fpcsr;
@@ -93,6 +111,14 @@ void openrisc_translate_init(void)
     env_flags = tcg_global_mem_new_i32(TCG_AREG0,
                                        offsetof(CPUOpenRISCState, flags),
                                        "flags");
+    cpu_lock_addr = tcg_global_mem_new(TCG_AREG0,
+                                       offsetof(CPUOpenRISCState, lock_addr),
+                                       "lock_addr");
+#ifdef STRICTER_ATOMICS
+    cpu_lock_value = tcg_global_mem_new(TCG_AREG0,
+                                        offsetof(CPUOpenRISCState, lock_value),
+                                        "lock_value");
+#endif
     cpu_pc = tcg_global_mem_new(TCG_AREG0,
                                 offsetof(CPUOpenRISCState, pc), "pc");
     jmp_pc = tcg_global_mem_new(TCG_AREG0,
@@ -137,6 +163,52 @@ static inline int sign_extend(unsigned int val, int width)
     return sval;
 }
 
+static void gen_atomic_load(TCGv tD, TCGv tA, int mem_idx)
+{
+  tcg_gen_qemu_ld32u(tD, tA, mem_idx);
+  tcg_gen_mov_i32(cpu_lock_addr, tA);
+#ifdef STRICTER_ATOMICS
+  tcg_gen_mov_i32(cpu_lock_value, tD);
+#endif
+}
+
+static void gen_atomic_poison(void)
+{
+  /* if we ever support byte level atomicity, this will need to be a flag. */
+  tcg_gen_movi_i64(cpu_lock_addr, -1);
+}
+
+static void gen_atomic_store(TCGv tA, TCGv tB, int mem_idx)
+{
+  int store_fail;
+  int store_done;
+#ifdef STRICTER_ATOMICS
+  TCGv val;
+#endif
+
+  store_fail = gen_new_label();
+  store_done = gen_new_label();
+#ifdef STRICTER_ATOMICS
+  val = tcg_temp_new();
+
+  tcg_gen_qemu_ld32u(val, tA, mem_idx);
+  tcg_gen_brcond_i32(TCG_COND_NE, val, cpu_lock_value, store_fail);
+#endif
+  tcg_gen_brcond_i32(TCG_COND_NE, tA, cpu_lock_addr, store_fail);
+  tcg_gen_qemu_st32(tB, tA, mem_idx);
+  tcg_gen_movi_i32(cpu_srf, 1);
+  tcg_gen_br(store_done);
+  gen_set_label(store_fail);
+  tcg_gen_movi_i32(cpu_srf, 0);
+  gen_set_label(store_done);
+  /* an atomic store always voids the lock address. */
+  gen_atomic_poison();
+
+#ifdef STRICTER_ATOMICS
+  tcg_temp_free(val);
+#endif
+}
+
 static inline void gen_sync_flags(DisasContext *dc)
 {
     /* Sync the tb dependent flag between translate and runtime.  */
@@ -152,6 +224,7 @@ static void gen_exception(DisasContext *dc, unsigned int excp)
     gen_sync_flags(dc);
     gen_helper_exception(cpu_env, tmp);
     tcg_temp_free_i32(tmp);
+    gen_atomic_poison();
 }
 
 static void gen_illegal_exception(DisasContext *dc)
@@ -728,7 +801,7 @@ static void gen_loadstore(DisasContext *dc, uint32 op0,
 
     switch (op0) {
     case 0x1b:    /* l.lwa */
-        tcg_gen_qemu_ld32u(cpu_R[rd], t0, dc->mem_idx);
+        gen_atomic_load(cpu_R[rd], t0, dc->mem_idx);
         break;
 
     case 0x21:    /* l.lwz */
@@ -756,8 +829,7 @@ static void gen_loadstore(DisasContext *dc, uint32 op0,
         break;
 
     case 0x33:    /* l.swa */
-        tcg_gen_qemu_st32(cpu_R[rb], t0, dc->mem_idx);
-        tcg_gen_movi_i32(cpu_srf, 1);
+        gen_atomic_store(t0, cpu_R[rb], dc->mem_idx);
         break;
 
     case 0x35:    /* l.sw */

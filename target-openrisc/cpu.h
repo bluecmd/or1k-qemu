@@ -318,6 +318,8 @@ typedef struct CPUOpenRISCState {
 
     uint32_t flags;           /* cpu_flags, we only use it for exception
                                  in solt so far.  */
+    target_ulong lock_addr;   /* Atomicity lock address. */
+    target_ulong lock_value;  /* Atomicity lock value. */
     CPU_COMMON
 
 #ifndef CONFIG_USER_ONLY
