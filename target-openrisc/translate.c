@@ -48,10 +48,8 @@
  * To close down the potential case where we have a store that should posion
  * the lock but is not atomic, we save the *value* of the address at the lock
  * time. This is a hack and is obviously not perfect, but I think this is
- * close enough and an acceptable trade-off.
- *
- * TODO This is disabled by default for now since it seems to be broken. */
-//#define STRICTER_ATOMICS
+ * close enough and an acceptable trade-off. */
+#define STRICTER_ATOMICS
 
 enum {
     JUMP_DYNAMIC, /* The address is not known during compile time*/
