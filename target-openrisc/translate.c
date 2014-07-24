@@ -172,27 +172,27 @@ static void gen_atomic_load(TCGv tD, TCGv tA, int mem_idx)
 
 static void gen_atomic_poison(void)
 {
-  /* if we ever support byte level atomicity, this will need to be a flag. */
-  tcg_gen_movi_i64(cpu_lock_addr, -1);
+  /* If we ever support byte level atomicity, this will need to be a flag. */
+  tcg_gen_movi_i32(cpu_lock_addr, -1);
 }
 
 static void gen_atomic_store(TCGv tA, TCGv tB, int mem_idx)
 {
   int store_fail;
   int store_done;
-#ifdef STRICTER_ATOMICS
-  TCGv val;
-#endif
 
   store_fail = gen_new_label();
   store_done = gen_new_label();
-#ifdef STRICTER_ATOMICS
-  val = tcg_temp_new();
-
-  tcg_gen_qemu_ld32u(val, tA, mem_idx);
-  tcg_gen_brcond_i32(TCG_COND_NE, val, cpu_lock_value, store_fail);
-#endif
   tcg_gen_brcond_i32(TCG_COND_NE, tA, cpu_lock_addr, store_fail);
+#ifdef STRICTER_ATOMICS
+  {
+    TCGv val = tcg_temp_new();
+
+    tcg_gen_qemu_ld32u(val, tA, mem_idx);
+    tcg_gen_brcond_i32(TCG_COND_NE, val, cpu_lock_value, store_fail);
+    tcg_temp_free(val);
+  }
+#endif
   tcg_gen_qemu_st32(tB, tA, mem_idx);
   tcg_gen_movi_i32(cpu_srf, 1);
   tcg_gen_br(store_done);
@@ -201,10 +201,6 @@ static void gen_atomic_store(TCGv tA, TCGv tB, int mem_idx)
   gen_set_label(store_done);
   /* an atomic store always voids the lock address. */
   gen_atomic_poison();
-
-#ifdef STRICTER_ATOMICS
-  tcg_temp_free(val);
-#endif
 }
 
 static inline void gen_sync_flags(DisasContext *dc)
@@ -793,7 +789,8 @@ static void gen_loadstore(DisasContext *dc, uint32 op0,
 
     TCGv t0 = cpu_R[ra];
     if (offset != 0) {
-        t0 = tcg_temp_new();
+        /* This needs to be local for atomic instructions. */
+        t0 = tcg_temp_local_new();
         tcg_gen_addi_tl(t0, cpu_R[ra], sign_extend(offset, 16));
     }
 
