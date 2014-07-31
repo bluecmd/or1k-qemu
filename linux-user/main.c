@@ -3773,7 +3773,7 @@ int main(int argc, char **argv, char **envp)
         cpu_model = "24Kf";
 #endif
 #elif defined TARGET_OPENRISC
-        cpu_model = "or1200";
+        cpu_model = "or1200-noflags";
 #elif defined(TARGET_PPC)
 #ifdef TARGET_PPC64
         cpu_model = "970fx";
